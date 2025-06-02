@@ -467,8 +467,7 @@ class ChatFrame(tkinter.ttk.Frame):
 
     def __configure_widgets(self):
         print("conf_chat")
-        self.__chat_label = tkinter.ttk.Label(self, text="afarqaega")
-        if 
+        self.__chat_label = tkinter.ttk.Label(self, text="afarqaega") 
         self.__exit_button = tkinter.ttk.Button(self, text="Назад", command=self.__exit)
         self.__entry = tkinter.ttk.Entry(self)
         self.__send_button = tkinter.ttk.Button(self, text=">", command=self.__send_message)
