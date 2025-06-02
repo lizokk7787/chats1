@@ -2,12 +2,11 @@ import tkinter
 import tkinter.ttk
 import flask
 import hashlib
-from database import User, Message, Chat, chat_user
+from database import User, Message, Chat, chat_user, Base
 
 from sqlalchemy import Engine, ForeignKey, create_engine, Column, Table, select
 # from sqlalchemy import create_engine, select
 # from sqlalchemy.orm import sessionmaker
-from database import Base
 # from database import Base, User, Message, Chat, chat_user
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
@@ -428,19 +427,21 @@ class ConfigureChatFrame(tkinter.ttk.Frame):
                 new_chat.users.append(user)
                 new_chat.users.append(sec_user)
 
-                    
-
-
                 session.commit()
                 self.pack_forget()
                 self.container.chats_frame.show(self.username)
 
 
-
     def show(self, username, sec_username):
         self.sec_username = sec_username
         self.username = username
-        self.pack()
+        self.pack(expand=True, fill=tkinter.BOTH)
+
+
+
+
+
+
 
 
 
@@ -449,13 +450,15 @@ class ChatFrame(tkinter.ttk.Frame):
     def __init__(self, container, Session):
         super().__init__(container)
         self.container = container
-        self.chat_id = 0
+        self.chat_id = "="
         self.username = ""
         self.Session = Session
 
         self.__chat_label: tkinter.ttk.Label
+        self.__users_label: tkinter.ttk.Label
         self.__messages_frame: MessagesFrame
         
+        self.__exit_button: tkinter.ttk.Button
         self.__entry: tkinter.ttk.Entry
         self.__send_button: tkinter.ttk.Button
 
@@ -463,24 +466,32 @@ class ChatFrame(tkinter.ttk.Frame):
         self.__pack_widgets()
 
     def __configure_widgets(self):
-        self.__chat_label = tkinter.ttk.Label(self, text="")
+        print("conf_chat")
+        self.__chat_label = tkinter.ttk.Label(self, text="afarqaega") 
+        self.__exit_button = tkinter.ttk.Button(self, text="Назад", command=self.__exit)
         self.__entry = tkinter.ttk.Entry(self)
         self.__send_button = tkinter.ttk.Button(self, text=">", command=self.__send_message)
+        print(self.chat_id, "chat.id")
         with self.Session() as session:
             stmt = select(Chat).where(Chat.id == self.chat_id)
             chat: Chat | None = session.scalars(stmt).first()
             if chat is not None:
+                print("chat is not none")
                 self.__messages_frame = MessagesFrame(self, self.Session)
                 self.__messages_frame.show(self.username, self.chat_id)
                 self.__chat_label = tkinter.ttk.Label(self, text=chat.name)
 
-
-
     def __pack_widgets(self):
         self.__chat_label.pack(pady=(5, 10))
 
+        self.__exit_button.pack(pady=5, side=tkinter.LEFT)
         self.__entry.pack(pady=5, side=tkinter.LEFT)
         self.__send_button.pack(pady=5, side=tkinter.LEFT)
+
+    def __exit(self):
+        self.__entry.delete(0, tkinter.END)
+        self.pack_forget()
+        self.container.chats_frame.show(self.username) 
 
     def __send_message(self):
         text = self.__entry.get()
@@ -493,7 +504,7 @@ class ChatFrame(tkinter.ttk.Frame):
             for u in chat.users:
                 if u.name == user:
                     user = u
-                    
+
             if chat is not None:
                 message = Message(text=text, user=user, user_id=user.id, chat_id=chat_id, chat=chat)
                 session.add(message)
@@ -502,9 +513,13 @@ class ChatFrame(tkinter.ttk.Frame):
                 session.commit()
 
     def show(self, username, chat_id):
-            self.username = username
-            self.chat_id = chat_id
-            self.pack()
+        print("this is big show")
+        self.username = username
+        self.chat_id = chat_id
+        print(self.username, self.chat_id)
+        self.__configure_widgets()
+        # self.__pack_widgets()
+        self.pack()
 
 
 
@@ -516,39 +531,60 @@ class MessagesFrame(tkinter.ttk.Frame):
         self.chat_id = 0
         self.username = ""
         self.Session = Session
-        r = 0
+        self.r = 0
+
 
         self.__username_label: tkinter.ttk.Label
         self.__message_label: tkinter.ttk.Label
 
         self.__configure_widgets()
-        self.__pack_widgets()
 
     def __configure_widgets(self):
+        print("write message frame conf")
         with self.Session() as session:
             stmt = select(Chat).where(Chat.id == self.chat_id)
             chat = session.scalars(stmt).first()
-            for m in chat.messages:
-                if m.user.name == self.username:
-                    self.__username_label = tkinter.ttk.Label(self, text=m.user.name)
-                    self.__message_label = tkinter.ttk.Label(self, text=m.text)
-                    self.__username_label.grid(row=r, colunm=2)
-                    r += 1
-                    self.__message_label.grid(row=r, colunm=2)
-                    r += 1
-                elif m.user.name in chat.users:
-                    self.__username_label = tkinter.ttk.Label(self, text=m.user.name)
-                    self.__message_label = tkinter.ttk.Label(self, text=m.text)
-                    self.__username_label.grid(row=r, colunm=1)
-                    r += 1
-                    self.__message_label.grid(row=r, colunm=1)
-                    r += 1
+            me_user: User
+            second_user: User
+
+            
+
+
+            if chat is not None:
+                print("chat is not None")
+
+                for u in chat.users:
+                    if u.name == self.username:
+                        me_user = u
+                    elif u.name != self.username:
+                        second_user = u
+
+                for m in chat.messages:
+                    if m.user.name == me_user.name:
+                        print(m.user.name, m.text)
+                        self.__username_label = tkinter.ttk.Label(self, text=m.user.name)
+                        self.__message_label = tkinter.ttk.Label(self, text=m.text)
+                        self.__username_label.grid(row=self.r, column=2)
+                        self.r += 1
+                        self.__message_label.grid(row=self.r, column=2)
+                        self.r += 1
+
+                    elif m.user.name == second_user.name:
+                        print(m.user.name, m.text)
+                        self.__username_label = tkinter.ttk.Label(self, text=m.user.name)
+                        self.__message_label = tkinter.ttk.Label(self, text=m.text)
+                        self.__username_label.grid(row=self.r, column=1)
+                        self.r += 1
+                        self.__message_label.grid(row=self.r, column=1)
+                        self.r += 1
 
 
     def show(self, username, chat_id):
         self.username = username
         self.chat_id = chat_id
         self.pack(expand=True, fill=tkinter.BOTH)
+        self.__configure_widgets()
+        print("show small frame")
 
 
 
@@ -576,7 +612,7 @@ class App(tkinter.Tk):
 
     def __configure_window(self):
         self.title("Мессенджер")
-        self.geometry("700x280")
+        self.geometry("700x680")
 
     def __configure_widgets(self):
         
