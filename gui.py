@@ -497,12 +497,29 @@ class ChatFrame(tkinter.ttk.Frame):
         self.__update_chat()
 
 
+    def check(self):
+        with self.Session() as session:
+            stmt = select(Chat).where(Chat.id == self.chat_id)
+            chat: Chat | None = session.scalars(stmt).first()
+            sleep(2)
+            stmt = select(Chat).where(Chat.id == self.chat_id)
+            chat2: Chat | None = session.scalars(stmt).first()
+            if len(chat.messages) != len(chat2.messages):
+                self.__update_chat()
+
+
     def show(self, username, chat_id):
         self.username = username
         self.chat_id = chat_id
         self.__update_chat()
+
         self.pack()
-        self.container.in_chat = True
+
+        while 1:
+            self.check()
+            
+
+        # self.container.in_chat = True
         # while self.container
         # with self.Session() as session:
         #     stmt = select(Chat).where(Chat.id == self.chat_id)
