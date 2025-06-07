@@ -29,16 +29,10 @@ class User(Base):
     chats: Mapped[list["Chat"]] = relationship(secondary="chat_user", back_populates="users")
     messages: Mapped[list["Message"]] = relationship(back_populates="user")
 
-# class ChatUser(Base):
-#     __tablename__ = "chat_user",
-#     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
-#     chat_id: Mapped[int] = mapped_column(ForeignKey("chat.id"), primary_key=True)
-
 chat_user = Table(
     "chat_user",
     Base.metadata,
     Column("user_id", ForeignKey("user.id"), primary_key=True),
     Column("chat_id", ForeignKey("chat.id"), primary_key=True)
 )
-
 
