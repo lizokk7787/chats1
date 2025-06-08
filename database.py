@@ -1,11 +1,11 @@
 from sqlalchemy import Engine, ForeignKey, create_engine, Column, Table, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-
 class Base(DeclarativeBase):
     pass
 
 class Message(Base):
+    #also can be added for time 
     __tablename__ = "message"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column()
@@ -28,6 +28,8 @@ class User(Base):
     password: Mapped[str] = mapped_column()
     chats: Mapped[list["Chat"]] = relationship(secondary="chat_user", back_populates="users")
     messages: Mapped[list["Message"]] = relationship(back_populates="user")
+
+# chat_user table for association between chats and users
 
 chat_user = Table(
     "chat_user",
