@@ -1,4 +1,4 @@
-
+import threading
 import tkinter
 from tkinter import font
 import tkinter.ttk
@@ -395,15 +395,14 @@ class ConfigureChatFrame(tkinter.ttk.Frame):
 
 
 
-
-
-
 class ChatFrame(tkinter.ttk.Frame):
     def __init__(self, container, Session):
         super().__init__(container)
         self.container = container
         self.chat_id = "="
         self.username = ""
+
+        self.stop = False
         self.Session = Session
 
         self.__chat_label: tkinter.ttk.Label
@@ -411,17 +410,17 @@ class ChatFrame(tkinter.ttk.Frame):
         self.__messages_frame: MessagesFrame
         self.canvas: tkinter.Canvas 
         self.scrollbar: tkinter.Scrollbar
-
         
         self.__entry_frame: tkinter.ttk.Frame
         self.__entry: tkinter.ttk.Entry
         self.__send_button: tkinter.ttk.Button
         self.__exit_button: tkinter.ttk.Button
-
-        self.__configure_widgets()
+        self.last_message_id = 0
 
 
     def __configure_widgets(self):
+        for widget in self.winfo_children():
+            widget.destroy()
 
         self.__chat_label = tkinter.ttk.Label(self, text="", style="Main.TLabel")
         self.__entry_frame = tkinter.ttk.Frame(self)
@@ -431,11 +430,6 @@ class ChatFrame(tkinter.ttk.Frame):
         self.__exit_button = tkinter.ttk.Button(self, text="Назад", command=self.__exit)
 
         self.bind("<KeyPress-Return>", self.__send_message)
-
-    def __update_chat(self):
-        self.__entry.delete(0, tkinter.END)
-        self.__exit_button.pack_forget()
-        self.__entry_frame.pack_forget()
 
         with self.Session() as session:
             stmt = select(Chat).where(Chat.id == self.chat_id)
@@ -447,29 +441,60 @@ class ChatFrame(tkinter.ttk.Frame):
 
                 self.__messages_frame = MessagesFrame(self, self.Session)
                 self.__chat_label = tkinter.ttk.Label(self, text=chat.name)
-        self.__pack_widgets()
-        
 
-    def __pack_widgets(self):
         self.__chat_label.pack(pady=(5, 10))
-        self.__user_label.pack()
-        self.__messages_frame.show(self.username, self.chat_id)
         self.__exit_button.pack(pady=5, side=tkinter.BOTTOM)
-
         self.__entry_frame.pack(side=tkinter.BOTTOM)
         self.__entry.pack(pady=5, padx=5, side=tkinter.LEFT)
         self.__entry.focus_set()
         self.__send_button.pack(pady=5, side=tkinter.LEFT)
+        self.stop = False
 
-    def __close(self):
-        self.__user_label.pack_forget()
-        self.__chat_label.pack_forget()
-        self.__messages_frame.pack_forget()
 
+
+    def __update_chat(self):
+
+        for widget in self.__messages_frame.winfo_children():
+            widget.destroy()
+
+        
+
+        with self.Session() as session:
+            stmt = select(Chat).where(Chat.id == self.chat_id)
+            chat: Chat | None = session.scalars(stmt).first()
+            if chat is not None:
+                for u in chat.users:
+                    if u.name != self.username:
+                        self.__user_label = tkinter.ttk.Label(self, text=u.name)
+
+                self.__messages_frame.show(self.username, chat.id)
+                self.__chat_label = tkinter.ttk.Label(self, text=chat.name)
+
+        if self.__entry_frame.winfo_exists():
+            self.__entry_frame.pack(side=tkinter.BOTTOM)
+        self.__entry.pack(pady=5, padx=5, side=tkinter.LEFT)
+        self.__entry.focus_set()
+        self.__send_button.pack(pady=5, side=tkinter.LEFT)
+        self.__exit_button.pack(pady=5, side=tkinter.BOTTOM)
+
+        self.stop = False
 
     def __exit(self):
-        self.__close()
+
+        self.__user_label.pack_forget()
+        self.__chat_label.pack_forget()
+        
+        self.__messages_frame.destroy()
+        self.__exit_button.pack_forget()
+        self.__entry_frame.pack_forget()
+
+        self.__entry.pack_forget()
+        self.__send_button.pack_forget()
+        self.__entry.delete(0, tkinter.END)
+
         self.pack_forget()
+
+        self.stop = True
         self.container.in_chat = False
         self.container.chats_frame.show(self.username) 
 
@@ -492,48 +517,29 @@ class ChatFrame(tkinter.ttk.Frame):
                 session.commit()
                 stmt = select(Message).where(Message.id == message.id)
                 message: Message | None = session.scalars(stmt).first()
-                
-        self.__close()
+        self.__entry.delete(0, tkinter.END)
+
         self.__update_chat()
 
 
-    def check(self):
-        with self.Session() as session:
-            stmt = select(Chat).where(Chat.id == self.chat_id)
-            chat: Chat | None = session.scalars(stmt).first()
-            sleep(2)
-            stmt = select(Chat).where(Chat.id == self.chat_id)
-            chat2: Chat | None = session.scalars(stmt).first()
-            if len(chat.messages) != len(chat2.messages):
-                self.__update_chat()
 
+    def show(self, username, chat_id) -> None:
 
-    def show(self, username, chat_id):
+    
         self.username = username
         self.chat_id = chat_id
-        self.__update_chat()
-
+        self.__configure_widgets()
         self.pack()
 
-        while 1:
-            self.check()
+        threading.Thread(target=self._run_checker, daemon=True).start()
+
+    def _run_checker(self):
+        while self.stop == False:
+            self.__update_chat()
+            sleep(2)
             
 
-        # self.container.in_chat = True
-        # while self.container
-        # with self.Session() as session:
-        #     stmt = select(Chat).where(Chat.id == self.chat_id)
-        #     chat: Message | None = session.scalars(stmt).first()
-        #     sleep(2)
-        #     stmt = select(Chat).where(Chat.id == self.chat_id)
-        #     chat2: Message | None = session.scalars(stmt).first()
-        #     while len(chat.messages) == len(chat2.messages):
-        #         stmt = select(Chat).where(Chat.id == self.chat_id)
-        #         chat: Message | None = session.scalars(stmt).first()
-        #         sleep(2)
-        #         stmt = select(Chat).where(Chat.id == self.chat_id)
-        #         chat2: Message | None = session.scalars(stmt).first()
-        #     self.__update_chat()
+
 
 
 
@@ -558,6 +564,10 @@ class ScrollableFrame(Frame):
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
+    def show(self, username, chat_id):
+        for widget in self.inner_frame.winfo_children():
+            widget.destroy()
+
 
 
 class MessagesFrame(tkinter.ttk.Frame):
@@ -569,10 +579,8 @@ class MessagesFrame(tkinter.ttk.Frame):
         self.Session = Session
         self.r = 0
 
-
         self.labels = []
         self.messages = []
-
 
         self.__username_label: tkinter.ttk.Label
         self.__message_label: tkinter.ttk.Label
@@ -598,8 +606,21 @@ class MessagesFrame(tkinter.ttk.Frame):
 
                 for m in chat.messages:
                     if m.user.name == me_user.name:
-                        self.__username_label = tkinter.ttk.Label(self.frame.inner_frame, text=m.user.name+":")
-                        self.__message_label = tkinter.ttk.Label(self.frame.inner_frame, text=m.text)
+                        name = ""
+                        # for el in range(len(m.user.name)):
+                        #     if el % 20 == 18:
+                        #         name += m.user.name[el] + "\n"
+
+                        self.__username_label = tkinter.ttk.Label(self.frame.inner_frame, text=name+":")
+                        
+                        text = ""
+                        # for el in range(len(m.text)):
+                        #     if el % 20 == 1:
+                        #         text += m.text[el] + "\n"
+
+
+                        self.__message_label = tkinter.ttk.Label(self.frame.inner_frame, text=text)
+                        
                         self.__username_label.grid(row=self.r, column=2)
                         self.r += 1
                         self.__message_label.grid(row=self.r, column=2)
@@ -624,6 +645,7 @@ class MessagesFrame(tkinter.ttk.Frame):
         self.chat_id = chat_id
         self.pack(expand=True, fill="both")
         self.__configure_widgets()
+
 
 
 class App(tkinter.Tk):
@@ -689,6 +711,10 @@ class App(tkinter.Tk):
     def __pack_widgets(self):
         self.reg_frame.show()
 
+
     def run(self):
+    #     threading.Thread(target=self.run_app, daemon=True).start()
+    
+    # def run_app(self):
         self.mainloop()
     
